@@ -1,0 +1,19 @@
+{
+  "name": "multillm-chat",
+  "version": "1.0.0",
+  "description": "A chat application enabling conversations between the latest AI agents from OpenAI, Grok, and Anthropic",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": ["ai", "chat", "openai", "grok", "anthropic", "llm", "agents"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.0.0",
+    "anthropic": "^0.20.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.0"
+  }
+}
