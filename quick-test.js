@@ -7,7 +7,7 @@ async function quickTest() {
   
   try {
     // Start server
-    server = spawn('node', ['web-server.js'], { stdio: 'pipe' });
+    server = spawn('node', ['mock-web-server.js'], { stdio: 'pipe' });
     
     // Wait max 2 seconds for server to start
     let serverReady = false;
