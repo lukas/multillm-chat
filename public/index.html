@@ -230,6 +230,25 @@
             font-size: 1.1em;
         }
         
+        .weave-tracking {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .weave-tracking a {
+            color: white;
+            text-decoration: underline;
+            font-weight: 600;
+        }
+        
+        .weave-tracking a:hover {
+            text-decoration: none;
+        }
+        
         @media (max-width: 768px) {
             .control-group {
                 flex-direction: column;
@@ -357,6 +376,18 @@
             errorDiv.className = 'error';
             errorDiv.innerHTML = `❌ ${data.message}`;
             chatContainer.appendChild(errorDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+
+        socket.on('weave_tracking', (data) => {
+            const weaveDiv = document.createElement('div');
+            weaveDiv.className = 'weave-tracking';
+            weaveDiv.innerHTML = `
+                📊 <strong>Conversation tracked with Weave!</strong><br>
+                <small>ID: ${data.conversationId}</small><br>
+                <a href="${data.dashboardUrl}" target="_blank">View Analytics Dashboard →</a>
+            `;
+            chatContainer.appendChild(weaveDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         });
 

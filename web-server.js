@@ -4,6 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const MultiLLMChat = require('./index.js');
+const weave = require('weave');
 
 const app = express();
 const server = http.createServer(app);
@@ -20,6 +21,12 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Weave dashboard endpoint
+app.get('/weave', (req, res) => {
+  const weaveUrl = 'https://wandb.ai/multillm-chat/weave';
+  res.redirect(weaveUrl);
+});
+
 // Enhanced MultiLLMChat class with web interface support
 class WebMultiLLMChat extends MultiLLMChat {
   constructor(io) {
@@ -30,53 +37,17 @@ class WebMultiLLMChat extends MultiLLMChat {
   async startConversation(topic, rounds = 3) {
     this.io.emit('conversation_start', { topic, rounds });
     
-    let currentMessage = `Let's discuss: ${topic}`;
+    // Call parent method which includes weave tracking
+    const result = await super.startConversation(topic, rounds);
     
-    for (let round = 1; round <= rounds; round++) {
-      this.io.emit('round_start', { round, totalRounds: rounds });
-      
-      try {
-        // OpenAI response
-        if (this.openai) {
-          this.io.emit('model_thinking', { model: 'OpenAI GPT-4', round });
-          const openaiResponse = await this.chatWithOpenAI(currentMessage);
-          this.io.emit('model_response', { 
-            model: 'OpenAI GPT-4', 
-            response: openaiResponse, 
-            round,
-            avatar: '🤖'
-          });
-          currentMessage = openaiResponse;
-          
-          // Add delay between responses for better UX
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // Anthropic response
-        if (this.anthropic) {
-          this.io.emit('model_thinking', { model: 'Anthropic Claude', round });
-          const anthropicResponse = await this.chatWithAnthropic(currentMessage);
-          this.io.emit('model_response', { 
-            model: 'Anthropic Claude', 
-            response: anthropicResponse, 
-            round,
-            avatar: '🧠'
-          });
-          currentMessage = anthropicResponse;
-          
-          // Add delay between responses for better UX
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-      } catch (error) {
-        this.io.emit('error', { 
-          message: `Error in round ${round}: ${error.message}`,
-          round 
-        });
-      }
-    }
+    // Emit weave dashboard link
+    this.io.emit('weave_tracking', {
+      conversationId: result.conversationId,
+      dashboardUrl: '/weave'
+    });
     
     this.io.emit('conversation_end');
+    return result;
   }
 }
 
