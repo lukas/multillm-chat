@@ -1,18 +1,22 @@
 require('dotenv').config();
-const wandb = require('@wandb/sdk');
 
-// Initialize W&B (optional - only if API key is available)
-let weaveEnabled = false;
+// Simple tracking without external dependencies for now
+let trackingEnabled = false;
+const trackingData = [];
+
 if (process.env.WANDB_API_KEY) {
-  try {
-    wandb.init({ project: 'multillm-chat' });
-    weaveEnabled = true;
-    console.log('📊 W&B tracking enabled');
-  } catch (error) {
-    console.log('⚠️  W&B tracking disabled:', error.message);
-  }
+  trackingEnabled = true;
+  console.log('📊 Tracking enabled (data will be logged locally)');
 } else {
-  console.log('⚠️  W&B tracking disabled (no WANDB_API_KEY found)');
+  console.log('⚠️  Tracking disabled (no WANDB_API_KEY found)');
+}
+
+function logEvent(event, data) {
+  if (trackingEnabled) {
+    const logEntry = { event, ...data, timestamp: new Date().toISOString() };
+    trackingData.push(logEntry);
+    console.log('📊 Tracked:', event, data);
+  }
 }
 
 class MultiLLMChat {
