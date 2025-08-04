@@ -36,6 +36,7 @@ class MultiLLMChat {
     }
   }
 
+  @weave.op()
   async chatWithOpenAI(message) {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized. Please check your API key.');
@@ -49,6 +50,7 @@ class MultiLLMChat {
     return completion.choices[0].message.content;
   }
 
+  @weave.op()
   async chatWithAnthropic(message) {
     if (!this.anthropic) {
       throw new Error('Anthropic client not initialized. Please check your API key.');
@@ -63,16 +65,28 @@ class MultiLLMChat {
     return message_response.content[0].text;
   }
 
+  @weave.op()
   async chatWithGrok(message) {
     // Placeholder for Grok API integration
     // Implementation will depend on the actual Grok API structure
     throw new Error('Grok API integration pending - API not yet publicly available');
   }
 
+  @weave.op()
   async startConversation(topic, rounds = 3) {
     console.log(`🚀 Starting multi-LLM conversation about: "${topic}"\n`);
     
+    // Track conversation metadata
+    const conversationId = `conv_${Date.now()}`;
+    weave.track('conversation_start', {
+      conversation_id: conversationId,
+      topic: topic,
+      planned_rounds: rounds,
+      timestamp: new Date().toISOString()
+    });
+    
     let currentMessage = `Let's discuss: ${topic}`;
+    const responses = [];
     
     for (let round = 1; round <= rounds; round++) {
       console.log(`--- Round ${round} ---\n`);
@@ -81,18 +95,62 @@ class MultiLLMChat {
         // OpenAI response
         if (this.openai) {
           console.log('🤖 OpenAI GPT-4:');
+          const startTime = Date.now();
           const openaiResponse = await this.chatWithOpenAI(currentMessage);
+          const duration = Date.now() - startTime;
+          
           console.log(openaiResponse);
           console.log('');
+          
+          // Track response metrics
+          weave.track('model_response', {
+            conversation_id: conversationId,
+            model: 'gpt-4',
+            round: round,
+            input_tokens: currentMessage.length,
+            output_tokens: openaiResponse.length,
+            duration_ms: duration,
+            timestamp: new Date().toISOString()
+          });
+          
+          responses.push({
+            model: 'OpenAI GPT-4',
+            round: round,
+            message: openaiResponse,
+            duration: duration
+          });
+          
           currentMessage = openaiResponse;
         }
 
         // Anthropic response
         if (this.anthropic) {
           console.log('🧠 Anthropic Claude:');
+          const startTime = Date.now();
           const anthropicResponse = await this.chatWithAnthropic(currentMessage);
+          const duration = Date.now() - startTime;
+          
           console.log(anthropicResponse);
           console.log('');
+          
+          // Track response metrics
+          weave.track('model_response', {
+            conversation_id: conversationId,
+            model: 'claude-3-sonnet',
+            round: round,
+            input_tokens: currentMessage.length,
+            output_tokens: anthropicResponse.length,
+            duration_ms: duration,
+            timestamp: new Date().toISOString()
+          });
+          
+          responses.push({
+            model: 'Anthropic Claude',
+            round: round,
+            message: anthropicResponse,
+            duration: duration
+          });
+          
           currentMessage = anthropicResponse;
         }
 
@@ -107,8 +165,31 @@ class MultiLLMChat {
         
       } catch (error) {
         console.error(`Error in round ${round}:`, error.message);
+        weave.track('conversation_error', {
+          conversation_id: conversationId,
+          round: round,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
       }
     }
+    
+    // Track conversation completion
+    weave.track('conversation_complete', {
+      conversation_id: conversationId,
+      topic: topic,
+      completed_rounds: rounds,
+      total_responses: responses.length,
+      total_duration: responses.reduce((sum, r) => sum + r.duration, 0),
+      timestamp: new Date().toISOString()
+    });
+    
+    return {
+      conversationId,
+      topic,
+      rounds,
+      responses
+    };
   }
 }
 
