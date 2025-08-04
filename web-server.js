@@ -36,17 +36,92 @@ class WebMultiLLMChat extends MultiLLMChat {
   async startConversation(topic, rounds = 3) {
     this.io.emit('conversation_start', { topic, rounds });
     
-    // Call parent method which includes weave tracking
-    const result = await super.startConversation(topic, rounds);
+    // Track conversation metadata
+    const conversationId = `conv_${Date.now()}`;
+    
+    let currentMessage = `Let's discuss: ${topic}`;
+    const responses = [];
+    
+    for (let round = 1; round <= rounds; round++) {
+      this.io.emit('round_start', { round, totalRounds: rounds });
+      
+      try {
+        // OpenAI response
+        if (this.openai) {
+          this.io.emit('model_thinking', { model: 'OpenAI GPT-4', round });
+          const startTime = Date.now();
+          const openaiResponse = await this.chatWithOpenAI(currentMessage);
+          const duration = Date.now() - startTime;
+          
+          this.io.emit('model_response', { 
+            model: 'OpenAI GPT-4', 
+            response: openaiResponse, 
+            round,
+            avatar: '🤖'
+          });
+          
+          responses.push({
+            model: 'OpenAI GPT-4',
+            round: round,
+            message: openaiResponse,
+            duration: duration
+          });
+          
+          currentMessage = openaiResponse;
+          
+          // Add delay between responses for better UX
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        // Anthropic response
+        if (this.anthropic) {
+          this.io.emit('model_thinking', { model: 'Anthropic Claude', round });
+          const startTime = Date.now();
+          const anthropicResponse = await this.chatWithAnthropic(currentMessage);
+          const duration = Date.now() - startTime;
+          
+          this.io.emit('model_response', { 
+            model: 'Anthropic Claude', 
+            response: anthropicResponse, 
+            round,
+            avatar: '🧠'
+          });
+          
+          responses.push({
+            model: 'Anthropic Claude',
+            round: round,
+            message: anthropicResponse,
+            duration: duration
+          });
+          
+          currentMessage = anthropicResponse;
+          
+          // Add delay between responses for better UX
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+      } catch (error) {
+        this.io.emit('error', { 
+          message: `Error in round ${round}: ${error.message}`,
+          round 
+        });
+      }
+    }
     
     // Emit weave dashboard link
     this.io.emit('weave_tracking', {
-      conversationId: result.conversationId,
+      conversationId: conversationId,
       dashboardUrl: '/weave'
     });
     
     this.io.emit('conversation_end');
-    return result;
+    
+    return {
+      conversationId,
+      topic,
+      rounds,
+      responses
+    };
   }
 }
 
