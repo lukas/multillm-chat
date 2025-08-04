@@ -4,7 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const MultiLLMChat = require('./index.js');
-const weave = require('weave');
+const wandb = require('@wandb/sdk');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,10 +21,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Weave dashboard endpoint
+// W&B dashboard endpoint
 app.get('/weave', (req, res) => {
-  const weaveUrl = 'https://wandb.ai/multillm-chat/weave';
-  res.redirect(weaveUrl);
+  const wandbUrl = 'https://wandb.ai/multillm-chat';
+  res.redirect(wandbUrl);
 });
 
 // Enhanced MultiLLMChat class with web interface support
