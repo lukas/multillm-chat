@@ -392,13 +392,6 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         });
 
-        socket.on('error', (data) => {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error';
-            errorDiv.innerHTML = `❌ ${data.message}`;
-            chatContainer.appendChild(errorDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        });
 
         socket.on('weave_tracking', (data) => {
             const weaveDiv = document.createElement('div');
@@ -419,6 +412,20 @@
             chatContainer.appendChild(completionDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
+            // Re-enable button
+            isConversationActive = false;
+            document.querySelector('.start-btn').disabled = false;
+            document.querySelector('.start-btn').textContent = 'Start Conversation';
+        });
+
+        socket.on('error', (data) => {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.innerHTML = `❌ ${data.message}`;
+            chatContainer.appendChild(errorDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // Re-enable button on error too
             isConversationActive = false;
             document.querySelector('.start-btn').disabled = false;
             document.querySelector('.start-btn').textContent = 'Start Conversation';
