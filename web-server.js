@@ -9,7 +9,8 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3007;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -97,7 +98,7 @@ io.on('connection', (socket) => {
 });
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`🌐 Web interface running at http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`🌐 Web interface running at http://${HOST}:${PORT}`);
   console.log(`🔌 Socket.IO server ready for real-time updates`);
 });

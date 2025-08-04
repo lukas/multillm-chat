@@ -33,7 +33,7 @@ A chat application that enables conversations between the latest AI agents from 
 4. Run the application:
    ```bash
    npm start     # Console mode
-   npm run web   # Web interface at http://localhost:3000
+   npm run web   # Web interface at http://0.0.0.0:3007
    ```
 
 ## Configuration
