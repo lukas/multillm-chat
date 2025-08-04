@@ -107,8 +107,19 @@ async function testWebInterface() {
     // Click the button
     await page.click('.start-btn');
     
-    console.log('⏳ Waiting 5 seconds to see what happens...');
-    await page.waitForTimeout(5000);
+    console.log('⏳ Waiting for conversation to start...');
+    
+    // Wait for conversation start event or timeout
+    try {
+      await page.waitForSelector('.conversation-topic', { timeout: 5000 });
+      console.log('✅ Conversation topic appeared');
+    } catch (error) {
+      console.log('❌ Conversation topic did not appear');
+    }
+    
+    // Wait for either success or error
+    console.log('⏳ Waiting for messages or errors...');
+    await page.waitForTimeout(10000);
     
     // Get all socket events that occurred
     const socketEvents = await page.evaluate(() => window.socketEvents || []);
