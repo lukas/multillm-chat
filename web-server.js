@@ -6,7 +6,13 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  },
+  allowEIO3: true
+});
 
 const PORT = 3007;
 const HOST = '0.0.0.0';
