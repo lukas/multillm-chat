@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket Test</title>
+</head>
+<body>
+    <h1>Socket.IO Test</h1>
+    <div id="log"></div>
+    <button onclick="testConversation()">Test Conversation</button>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io('http://localhost:3008');
+        const log = document.getElementById('log');
+        
+        function addLog(message) {
+            log.innerHTML += '<div>' + new Date().toISOString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+        
+        socket.on('connect', () => {
+            addLog('✅ Connected to server');
+        });
+        
+        socket.on('disconnect', () => {
+            addLog('❌ Disconnected from server');
+        });
+        
+        socket.on('conversation_start', (data) => {
+            addLog('🚀 Conversation started: ' + JSON.stringify(data));
+        });
+        
+        socket.on('model_response', (data) => {
+            addLog('🤖 Model response: ' + data.model + ' - ' + data.response);
+        });
+        
+        socket.on('conversation_end', () => {
+            addLog('🏁 Conversation ended');
+        });
+        
+        socket.on('error', (error) => {
+            addLog('❌ Error: ' + JSON.stringify(error));
+        });
+        
+        function testConversation() {
+            addLog('📤 Sending start_conversation event');
+            socket.emit('start_conversation', { topic: 'Test topic', rounds: '1' });
+        }
+    </script>
+</body>
+</html>
