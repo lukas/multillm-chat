@@ -6,6 +6,8 @@ A chat application that enables conversations between the latest AI agents from 
 
 - **Multi-LLM Integration**: Connects to OpenAI GPT-4, Anthropic Claude, and Grok (when available)
 - **Interactive Conversations**: Facilitates back-and-forth discussions between different AI models
+- **Web Interface**: Real-time visualization of conversations with a beautiful UI
+- **Console Mode**: Traditional command-line interface for conversations
 - **Configurable Rounds**: Set the number of conversation rounds
 - **Easy Setup**: Simple configuration with environment variables
 
@@ -30,7 +32,8 @@ A chat application that enables conversations between the latest AI agents from 
 
 4. Run the application:
    ```bash
-   npm start
+   npm start     # Console mode
+   npm run web   # Web interface at http://localhost:3000
    ```
 
 ## Configuration
