@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .log { margin: 5px 0; padding: 10px; background: #f0f0f0; }
+        .error { background: #ffcccc; }
+        .success { background: #ccffcc; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px 0; }
+        input { padding: 8px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Socket.IO Test</h1>
+    
+    <div id="status">Connecting...</div>
+    
+    <div>
+        <input type="text" id="topic" value="Test topic" placeholder="Topic">
+        <input type="number" id="rounds" value="1" min="1" max="5">
+        <button onclick="startTest()">Start Test</button>
+    </div>
+    
+    <div id="logs"></div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const logs = document.getElementById('logs');
+        const status = document.getElementById('status');
+        
+        function addLog(message, type = 'log') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            logs.appendChild(div);
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+        
+        let socket;
+        
+        try {
+            addLog('Creating Socket.IO connection...');
+            socket = io();
+            
+            socket.on('connect', () => {
+                addLog('✅ Connected successfully!', 'success');
+                status.textContent = 'Connected';
+            });
+            
+            socket.on('disconnect', () => {
+                addLog('❌ Disconnected', 'error');
+                status.textContent = 'Disconnected';
+            });
+            
+            socket.on('connect_error', (error) => {
+                addLog('❌ Connection error: ' + error.message, 'error');
+                status.textContent = 'Connection error';
+            });
+            
+            socket.on('conversation_start', (data) => {
+                addLog('🚀 Conversation started: ' + JSON.stringify(data), 'success');
+            });
+            
+            socket.on('model_response', (data) => {
+                addLog('🤖 Response from ' + data.model + ': ' + data.response.substring(0, 50) + '...', 'success');
+            });
+            
+            socket.on('conversation_end', () => {
+                addLog('🏁 Conversation ended', 'success');
+            });
+            
+            socket.on('error', (error) => {
+                addLog('❌ Error: ' + JSON.stringify(error), 'error');
+            });
+            
+        } catch (error) {
+            addLog('❌ Failed to create socket: ' + error.message, 'error');
+        }
+        
+        function startTest() {
+            if (!socket || !socket.connected) {
+                addLog('❌ Socket not connected', 'error');
+                return;
+            }
+            
+            const topic = document.getElementById('topic').value;
+            const rounds = document.getElementById('rounds').value;
+            
+            addLog('📤 Sending start_conversation: ' + topic + ' (' + rounds + ' rounds)');
+            socket.emit('start_conversation', { topic, rounds });
+        }
+    </script>
+</body>
+</html>
