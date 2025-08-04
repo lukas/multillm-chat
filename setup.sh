@@ -45,6 +45,9 @@ ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
 # Grok API Configuration (when available)
 GROK_API_KEY=your_grok_api_key_here
+
+# Weave Configuration (optional - for tracking and analytics)
+WANDB_API_KEY=your_wandb_api_key_here
 EOL
     echo "✅ Created .env file"
     echo "⚠️  Please edit .env and add your API keys before running the application"
@@ -62,6 +65,7 @@ echo "Next steps:"
 echo "1. Edit .env file and add your API keys:"
 echo "   - OpenAI: https://platform.openai.com/api-keys"
 echo "   - Anthropic: https://console.anthropic.com/"
+echo "   - Weave/W&B (optional): https://wandb.ai/settings"
 echo ""
 echo "2. Run the application:"
 echo "   npm start          # Console mode"
