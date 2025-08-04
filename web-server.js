@@ -3,46 +3,118 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
-const MultiLLMChat = require('./index.js');
-// Removed wandb require - using simple tracking instead
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-const PORT = process.env.PORT || 3007;
-const HOST = process.env.HOST || '0.0.0.0';
+const PORT = 3007;
+const HOST = '0.0.0.0';
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve the main page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Tracking dashboard endpoint
-app.get('/weave', (req, res) => {
-  res.json({ message: 'Tracking data is logged locally in console for now. Set WANDB_API_KEY for full W&B integration.' });
-});
+// Simple tracking
+let trackingEnabled = !!process.env.WANDB_API_KEY;
+const trackingData = [];
 
-// Enhanced MultiLLMChat class with web interface support
-class WebMultiLLMChat extends MultiLLMChat {
+function logEvent(event, data) {
+  if (trackingEnabled) {
+    const logEntry = { event, ...data, timestamp: new Date().toISOString() };
+    trackingData.push(logEntry);
+    console.log('📊 Tracked:', event, data);
+  }
+}
+
+// Standalone chat class for web interface
+class WebChatHandler {
   constructor(io) {
-    super();
     this.io = io;
+    this.openai = null;
+    this.anthropic = null;
+    this.initializeClients();
+  }
+
+  initializeClients() {
+    console.log('🔧 Initializing API clients...');
+    
+    // OpenAI client initialization
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const { OpenAI } = require('openai');
+        this.openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+        });
+        console.log('✅ OpenAI client initialized');
+      } catch (error) {
+        console.error('❌ OpenAI client initialization failed:', error.message);
+      }
+    } else {
+      console.log('⚠️ OpenAI API key not found');
+    }
+
+    // Anthropic client initialization
+    if (process.env.ANTHROPIC_API_KEY) {
+      try {
+        const Anthropic = require('@anthropic-ai/sdk');
+        this.anthropic = new Anthropic({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+        });
+        console.log('✅ Anthropic client initialized');
+      } catch (error) {
+        console.error('❌ Anthropic client initialization failed:', error.message);
+      }
+    } else {
+      console.log('⚠️ Anthropic API key not found');
+    }
+  }
+
+  async chatWithOpenAI(message) {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized. Please check your API key.');
+    }
+
+    console.log('🤖 Calling OpenAI API...');
+    const completion = await this.openai.chat.completions.create({
+      messages: [{ role: 'user', content: message }],
+      model: 'gpt-4',
+    });
+
+    return completion.choices[0].message.content;
+  }
+
+  async chatWithAnthropic(message) {
+    if (!this.anthropic) {
+      throw new Error('Anthropic client not initialized. Please check your API key.');
+    }
+
+    console.log('🧠 Calling Anthropic API...');
+    const message_response = await this.anthropic.messages.create({
+      model: 'claude-3-sonnet-20240229',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: message }],
+    });
+
+    return message_response.content[0].text;
   }
 
   async startConversation(topic, rounds = 3) {
+    console.log(`🚀 Starting conversation: "${topic}" with ${rounds} rounds`);
+    
     this.io.emit('conversation_start', { topic, rounds });
     
-    // Track conversation metadata
     const conversationId = `conv_${Date.now()}`;
+    logEvent('conversation_start', { conversation_id: conversationId, topic, planned_rounds: rounds });
     
     let currentMessage = `Let's discuss: ${topic}`;
     const responses = [];
     
     for (let round = 1; round <= rounds; round++) {
+      console.log(`--- Round ${round} ---`);
       this.io.emit('round_start', { round, totalRounds: rounds });
       
       try {
@@ -53,6 +125,7 @@ class WebMultiLLMChat extends MultiLLMChat {
           const openaiResponse = await this.chatWithOpenAI(currentMessage);
           const duration = Date.now() - startTime;
           
+          console.log('🤖 OpenAI response received');
           this.io.emit('model_response', { 
             model: 'OpenAI GPT-4', 
             response: openaiResponse, 
@@ -60,16 +133,16 @@ class WebMultiLLMChat extends MultiLLMChat {
             avatar: '🤖'
           });
           
-          responses.push({
-            model: 'OpenAI GPT-4',
-            round: round,
-            message: openaiResponse,
-            duration: duration
+          logEvent('model_response', {
+            conversation_id: conversationId,
+            model: 'gpt-4',
+            round,
+            duration_ms: duration
           });
           
+          responses.push({ model: 'OpenAI GPT-4', round, message: openaiResponse, duration });
           currentMessage = openaiResponse;
           
-          // Add delay between responses for better UX
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
@@ -80,6 +153,7 @@ class WebMultiLLMChat extends MultiLLMChat {
           const anthropicResponse = await this.chatWithAnthropic(currentMessage);
           const duration = Date.now() - startTime;
           
+          console.log('🧠 Anthropic response received');
           this.io.emit('model_response', { 
             model: 'Anthropic Claude', 
             response: anthropicResponse, 
@@ -87,28 +161,37 @@ class WebMultiLLMChat extends MultiLLMChat {
             avatar: '🧠'
           });
           
-          responses.push({
-            model: 'Anthropic Claude',
-            round: round,
-            message: anthropicResponse,
-            duration: duration
+          logEvent('model_response', {
+            conversation_id: conversationId,
+            model: 'claude-3-sonnet',
+            round,
+            duration_ms: duration
           });
           
+          responses.push({ model: 'Anthropic Claude', round, message: anthropicResponse, duration });
           currentMessage = anthropicResponse;
           
-          // Add delay between responses for better UX
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
       } catch (error) {
+        console.error(`❌ Error in round ${round}:`, error.message);
         this.io.emit('error', { 
           message: `Error in round ${round}: ${error.message}`,
           round 
         });
+        
+        logEvent('conversation_error', { conversation_id: conversationId, round, error: error.message });
       }
     }
     
-    // Emit weave dashboard link
+    logEvent('conversation_complete', {
+      conversation_id: conversationId,
+      topic,
+      completed_rounds: rounds,
+      total_responses: responses.length
+    });
+    
     this.io.emit('weave_tracking', {
       conversationId: conversationId,
       dashboardUrl: '/weave'
@@ -116,12 +199,8 @@ class WebMultiLLMChat extends MultiLLMChat {
     
     this.io.emit('conversation_end');
     
-    return {
-      conversationId,
-      topic,
-      rounds,
-      responses
-    };
+    console.log('✅ Conversation completed');
+    return { conversationId, topic, rounds, responses };
   }
 }
 
@@ -132,14 +211,11 @@ io.on('connection', (socket) => {
   socket.on('start_conversation', async (data) => {
     try {
       const { topic, rounds } = data;
-      console.log(`🚀 Starting web conversation: "${topic}" with ${rounds} rounds`);
-      console.log('📊 Data received:', data);
+      console.log(`🚀 Received start_conversation: "${topic}" with ${rounds} rounds`);
       
-      const chat = new WebMultiLLMChat(io);
-      console.log('🔧 WebMultiLLMChat instance created');
+      const chatHandler = new WebChatHandler(io);
+      await chatHandler.startConversation(topic, parseInt(rounds));
       
-      const result = await chat.startConversation(topic, parseInt(rounds));
-      console.log('✅ Conversation completed:', result);
     } catch (error) {
       console.error('❌ Error in start_conversation:', error);
       socket.emit('error', { message: error.message });
@@ -151,8 +227,25 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
+// Tracking dashboard endpoint
+app.get('/weave', (req, res) => {
+  res.json({ 
+    message: 'Tracking data is logged locally in console for now. Set WANDB_API_KEY for full W&B integration.',
+    trackingEnabled,
+    totalEvents: trackingData.length
+  });
+});
+
 server.listen(PORT, HOST, () => {
-  console.log(`🌐 Web interface running at http://${HOST}:${PORT}`);
+  console.log(`🌐 Fixed web interface running at http://${HOST}:${PORT}`);
   console.log(`🔌 Socket.IO server ready for real-time updates`);
+  console.log(`📊 Tracking ${trackingEnabled ? 'enabled' : 'disabled'}`);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Shutting down server...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });
