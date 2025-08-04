@@ -1,4 +1,8 @@
 require('dotenv').config();
+const weave = require('weave');
+
+// Initialize Weave
+weave.init('multillm-chat');
 
 class MultiLLMChat {
   constructor() {
