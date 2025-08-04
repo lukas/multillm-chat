@@ -55,11 +55,20 @@ io.on('connection', (socket) => {
   console.log('👤 User connected to web interface');
 
   socket.on('start_conversation', async (data) => {
-    const { topic, rounds } = data;
-    console.log(`🚀 Starting web conversation: "${topic}" with ${rounds} rounds`);
-    
-    const chat = new WebMultiLLMChat(io);
-    await chat.startConversation(topic, parseInt(rounds));
+    try {
+      const { topic, rounds } = data;
+      console.log(`🚀 Starting web conversation: "${topic}" with ${rounds} rounds`);
+      console.log('📊 Data received:', data);
+      
+      const chat = new WebMultiLLMChat(io);
+      console.log('🔧 WebMultiLLMChat instance created');
+      
+      const result = await chat.startConversation(topic, parseInt(rounds));
+      console.log('✅ Conversation completed:', result);
+    } catch (error) {
+      console.error('❌ Error in start_conversation:', error);
+      socket.emit('error', { message: error.message });
+    }
   });
 
   socket.on('disconnect', () => {
