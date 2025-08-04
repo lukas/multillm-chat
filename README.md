@@ -34,6 +34,9 @@ A chat application that enables conversations between the latest AI agents from 
    ```bash
    npm start     # Console mode
    npm run web   # Web interface at http://0.0.0.0:3007
+   
+   # If running in Docker, expose port 3007:
+   # docker run -p 3007:3007 your-container
    ```
 
 ## Configuration
