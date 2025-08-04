@@ -33,6 +33,11 @@ echo "✅ npm $(npm -v) is installed"
 echo "📦 Installing dependencies..."
 npm install
 
+# Install Playwright browser dependencies (for testing)
+echo "🎭 Installing Playwright browser dependencies..."
+sudo apt-get update -qq
+sudo apt-get install -y -qq libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxkbcommon0 libatspi2.0-0t64 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libcairo2 libpango-1.0-0 libasound2t64 2>/dev/null || echo "⚠️  Could not install browser dependencies (may need sudo)"
+
 # Create .env file if it doesn't exist
 if [ ! -f .env ]; then
     echo "📝 Creating .env file..."
