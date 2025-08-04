@@ -1,8 +1,19 @@
 require('dotenv').config();
-const weave = require('weave');
+const wandb = require('@wandb/sdk');
 
-// Initialize Weave
-weave.init('multillm-chat');
+// Initialize W&B (optional - only if API key is available)
+let weaveEnabled = false;
+if (process.env.WANDB_API_KEY) {
+  try {
+    wandb.init({ project: 'multillm-chat' });
+    weaveEnabled = true;
+    console.log('📊 W&B tracking enabled');
+  } catch (error) {
+    console.log('⚠️  W&B tracking disabled:', error.message);
+  }
+} else {
+  console.log('⚠️  W&B tracking disabled (no WANDB_API_KEY found)');
+}
 
 class MultiLLMChat {
   constructor() {
@@ -10,12 +21,6 @@ class MultiLLMChat {
     this.anthropic = null;
     this.grok = null;
     this.initializeClients();
-    
-    // Wrap methods with weave tracking
-    this.chatWithOpenAI = weave.op(this.chatWithOpenAI.bind(this));
-    this.chatWithAnthropic = weave.op(this.chatWithAnthropic.bind(this));
-    this.chatWithGrok = weave.op(this.chatWithGrok.bind(this));
-    this.startConversation = weave.op(this.startConversation.bind(this));
   }
 
   initializeClients() {
@@ -80,12 +85,15 @@ class MultiLLMChat {
     
     // Track conversation metadata
     const conversationId = `conv_${Date.now()}`;
-    weave.track('conversation_start', {
-      conversation_id: conversationId,
-      topic: topic,
-      planned_rounds: rounds,
-      timestamp: new Date().toISOString()
-    });
+    if (weaveEnabled) {
+      wandb.log({
+        event: 'conversation_start',
+        conversation_id: conversationId,
+        topic: topic,
+        planned_rounds: rounds,
+        timestamp: new Date().toISOString()
+      });
+    }
     
     let currentMessage = `Let's discuss: ${topic}`;
     const responses = [];
