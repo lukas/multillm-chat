@@ -4,7 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
 const MultiLLMChat = require('./index.js');
-const wandb = require('@wandb/sdk');
+// Removed wandb require - using simple tracking instead
 
 const app = express();
 const server = http.createServer(app);
@@ -21,10 +21,9 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// W&B dashboard endpoint
+// Tracking dashboard endpoint
 app.get('/weave', (req, res) => {
-  const wandbUrl = 'https://wandb.ai/multillm-chat';
-  res.redirect(wandbUrl);
+  res.json({ message: 'Tracking data is logged locally in console for now. Set WANDB_API_KEY for full W&B integration.' });
 });
 
 // Enhanced MultiLLMChat class with web interface support

@@ -89,15 +89,11 @@ class MultiLLMChat {
     
     // Track conversation metadata
     const conversationId = `conv_${Date.now()}`;
-    if (weaveEnabled) {
-      wandb.log({
-        event: 'conversation_start',
-        conversation_id: conversationId,
-        topic: topic,
-        planned_rounds: rounds,
-        timestamp: new Date().toISOString()
-      });
-    }
+    logEvent('conversation_start', {
+      conversation_id: conversationId,
+      topic: topic,
+      planned_rounds: rounds
+    });
     
     let currentMessage = `Let's discuss: ${topic}`;
     const responses = [];
@@ -117,18 +113,14 @@ class MultiLLMChat {
           console.log('');
           
           // Track response metrics
-          if (weaveEnabled) {
-            wandb.log({
-              event: 'model_response',
-              conversation_id: conversationId,
-              model: 'gpt-4',
-              round: round,
-              input_tokens: currentMessage.length,
-              output_tokens: openaiResponse.length,
-              duration_ms: duration,
-              timestamp: new Date().toISOString()
-            });
-          }
+          logEvent('model_response', {
+            conversation_id: conversationId,
+            model: 'gpt-4',
+            round: round,
+            input_tokens: currentMessage.length,
+            output_tokens: openaiResponse.length,
+            duration_ms: duration
+          });
           
           responses.push({
             model: 'OpenAI GPT-4',
@@ -151,18 +143,14 @@ class MultiLLMChat {
           console.log('');
           
           // Track response metrics
-          if (weaveEnabled) {
-            wandb.log({
-              event: 'model_response',
-              conversation_id: conversationId,
-              model: 'claude-3-sonnet',
-              round: round,
-              input_tokens: currentMessage.length,
-              output_tokens: anthropicResponse.length,
-              duration_ms: duration,
-              timestamp: new Date().toISOString()
-            });
-          }
+          logEvent('model_response', {
+            conversation_id: conversationId,
+            model: 'claude-3-sonnet',
+            round: round,
+            input_tokens: currentMessage.length,
+            output_tokens: anthropicResponse.length,
+            duration_ms: duration
+          });
           
           responses.push({
             model: 'Anthropic Claude',
@@ -185,30 +173,22 @@ class MultiLLMChat {
         
       } catch (error) {
         console.error(`Error in round ${round}:`, error.message);
-        if (weaveEnabled) {
-          wandb.log({
-            event: 'conversation_error',
-            conversation_id: conversationId,
-            round: round,
-            error: error.message,
-            timestamp: new Date().toISOString()
-          });
-        }
+        logEvent('conversation_error', {
+          conversation_id: conversationId,
+          round: round,
+          error: error.message
+        });
       }
     }
     
     // Track conversation completion
-    if (weaveEnabled) {
-      wandb.log({
-        event: 'conversation_complete',
-        conversation_id: conversationId,
-        topic: topic,
-        completed_rounds: rounds,
-        total_responses: responses.length,
-        total_duration: responses.reduce((sum, r) => sum + r.duration, 0),
-        timestamp: new Date().toISOString()
-      });
-    }
+    logEvent('conversation_complete', {
+      conversation_id: conversationId,
+      topic: topic,
+      completed_rounds: rounds,
+      total_responses: responses.length,
+      total_duration: responses.reduce((sum, r) => sum + r.duration, 0)
+    });
     
     return {
       conversationId,
