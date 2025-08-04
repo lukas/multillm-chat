@@ -10,6 +10,12 @@ class MultiLLMChat {
     this.anthropic = null;
     this.grok = null;
     this.initializeClients();
+    
+    // Wrap methods with weave tracking
+    this.chatWithOpenAI = weave.op(this.chatWithOpenAI.bind(this));
+    this.chatWithAnthropic = weave.op(this.chatWithAnthropic.bind(this));
+    this.chatWithGrok = weave.op(this.chatWithGrok.bind(this));
+    this.startConversation = weave.op(this.startConversation.bind(this));
   }
 
   initializeClients() {
@@ -36,7 +42,6 @@ class MultiLLMChat {
     }
   }
 
-  @weave.op()
   async chatWithOpenAI(message) {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized. Please check your API key.');
@@ -50,7 +55,6 @@ class MultiLLMChat {
     return completion.choices[0].message.content;
   }
 
-  @weave.op()
   async chatWithAnthropic(message) {
     if (!this.anthropic) {
       throw new Error('Anthropic client not initialized. Please check your API key.');
@@ -65,14 +69,12 @@ class MultiLLMChat {
     return message_response.content[0].text;
   }
 
-  @weave.op()
   async chatWithGrok(message) {
     // Placeholder for Grok API integration
     // Implementation will depend on the actual Grok API structure
     throw new Error('Grok API integration pending - API not yet publicly available');
   }
 
-  @weave.op()
   async startConversation(topic, rounds = 3) {
     console.log(`🚀 Starting multi-LLM conversation about: "${topic}"\n`);
     
