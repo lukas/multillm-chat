@@ -1,1 +1,2 @@
 - do not run jobs that dont terminate, test with playwright
+- all tests must be designed to complete in under 5 seconds
