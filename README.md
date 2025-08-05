@@ -47,6 +47,10 @@ Create a `.env` file with your API keys:
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 GROK_API_KEY=your_grok_api_key_here
+
+# Optional: Set host binding (defaults to localhost)
+# Use 0.0.0.0 to allow external connections (Docker, remote access)
+# HOST=0.0.0.0
 ```
 
 ## Usage
