@@ -93,8 +93,8 @@ app.post('/start-conversation', async (req, res) => {
 
 // Mock chat handler that responds instantly
 class MockChatHandler {
-  constructor(io) {
-    this.io = io;
+  constructor(clients) {
+    this.clients = clients;
   }
 
   async startConversation(topic, rounds = 3) {
