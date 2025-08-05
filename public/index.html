@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multi-LLM Chat Interface</title>
-    <script src="/socket.io/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -298,25 +297,131 @@
     </div>
 
     <script>
-        const socket = io();
         const chatContainer = document.getElementById('chatContainer');
         const status = document.getElementById('status');
         let isConversationActive = false;
+        let eventSource = null;
 
-        // Add connection logging
-        socket.on('connect', () => {
-            console.log('Socket.IO connected');
-        });
+        // Initialize SSE connection
+        function initializeSSE() {
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventSource = new EventSource('/events');
+            
+            eventSource.onopen = () => {
+                console.log('SSE connected');
+            };
 
-        socket.on('disconnect', () => {
-            console.log('Socket.IO disconnected');
-        });
+            eventSource.onerror = (error) => {
+                console.error('SSE connection error:', error);
+                // Attempt to reconnect after 3 seconds
+                setTimeout(() => {
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        initializeSSE();
+                    }
+                }, 3000);
+            };
 
-        socket.on('connect_error', (error) => {
-            console.error('Socket.IO connection error:', error);
-        });
+            // Handle different event types
+            eventSource.addEventListener('conversation_start', (event) => {
+                const data = JSON.parse(event.data);
+                chatContainer.innerHTML = `
+                    <div class="conversation-topic">
+                        <h3>🎯 Discussion Topic</h3>
+                        <p>${data.topic}</p>
+                        <small>Running ${data.rounds} round(s)</small>
+                    </div>
+                `;
+            });
 
-        function startConversation() {
+            eventSource.addEventListener('round_start', (event) => {
+                const data = JSON.parse(event.data);
+                const roundDiv = document.createElement('div');
+                roundDiv.className = 'round-indicator';
+                roundDiv.innerHTML = `🔄 Round ${data.round} of ${data.totalRounds}`;
+                chatContainer.appendChild(roundDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+
+            eventSource.addEventListener('model_thinking', (event) => {
+                const data = JSON.parse(event.data);
+                const thinkingDiv = document.createElement('div');
+                thinkingDiv.className = 'thinking';
+                thinkingDiv.id = `thinking-${data.model.replace(/\s+/g, '-').toLowerCase()}`;
+                thinkingDiv.innerHTML = `${data.model} is thinking... 🤔`;
+                chatContainer.appendChild(thinkingDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+
+            eventSource.addEventListener('model_response', (event) => {
+                const data = JSON.parse(event.data);
+                // Remove thinking indicator
+                const thinkingDiv = document.getElementById(`thinking-${data.model.replace(/\s+/g, '-').toLowerCase()}`);
+                if (thinkingDiv) {
+                    thinkingDiv.remove();
+                }
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${data.model.toLowerCase().includes('openai') ? 'openai' : 'anthropic'}`;
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <span class="avatar">${data.avatar}</span>
+                        <span>${data.model}</span>
+                        <span class="round-badge">Round ${data.round}</span>
+                    </div>
+                    <div class="message-content">${data.response}</div>
+                `;
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+
+            eventSource.addEventListener('weave_tracking', (event) => {
+                const data = JSON.parse(event.data);
+                const weaveDiv = document.createElement('div');
+                weaveDiv.className = 'weave-tracking';
+                weaveDiv.innerHTML = `
+                    📊 <strong>Conversation tracked with Weave!</strong><br>
+                    <small>ID: ${data.conversationId}</small><br>
+                    <a href="${data.dashboardUrl}" target="_blank">View Analytics Dashboard →</a>
+                `;
+                chatContainer.appendChild(weaveDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+
+            eventSource.addEventListener('conversation_end', (event) => {
+                const completionDiv = document.createElement('div');
+                completionDiv.className = 'completion';
+                completionDiv.innerHTML = '🎉 Conversation completed! Start a new one above.';
+                chatContainer.appendChild(completionDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                // Re-enable button
+                isConversationActive = false;
+                document.querySelector('.start-btn').disabled = false;
+                document.querySelector('.start-btn').textContent = 'Start Conversation';
+            });
+
+            eventSource.addEventListener('error', (event) => {
+                const data = JSON.parse(event.data);
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.innerHTML = `❌ ${data.message}`;
+                chatContainer.appendChild(errorDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+                
+                // Re-enable button on error too
+                isConversationActive = false;
+                document.querySelector('.start-btn').disabled = false;
+                document.querySelector('.start-btn').textContent = 'Start Conversation';
+            });
+        }
+
+        // Initialize SSE on page load
+        initializeSSE();
+
+        async function startConversation() {
             console.log('Start conversation clicked');
             
             if (isConversationActive) {
@@ -340,101 +445,44 @@
             
             chatContainer.innerHTML = '';
             
-            console.log('Emitting start_conversation event');
-            socket.emit('start_conversation', { topic, rounds });
-        }
-
-        socket.on('conversation_start', (data) => {
-            chatContainer.innerHTML = `
-                <div class="conversation-topic">
-                    <h3>🎯 Discussion Topic</h3>
-                    <p>${data.topic}</p>
-                    <small>Running ${data.rounds} round(s)</small>
-                </div>
-            `;
-        });
-
-        socket.on('round_start', (data) => {
-            const roundDiv = document.createElement('div');
-            roundDiv.className = 'round-indicator';
-            roundDiv.innerHTML = `🔄 Round ${data.round} of ${data.totalRounds}`;
-            chatContainer.appendChild(roundDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        });
-
-        socket.on('model_thinking', (data) => {
-            const thinkingDiv = document.createElement('div');
-            thinkingDiv.className = 'thinking';
-            thinkingDiv.id = `thinking-${data.model.replace(/\s+/g, '-').toLowerCase()}`;
-            thinkingDiv.innerHTML = `${data.model} is thinking... 🤔`;
-            chatContainer.appendChild(thinkingDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        });
-
-        socket.on('model_response', (data) => {
-            // Remove thinking indicator
-            const thinkingDiv = document.getElementById(`thinking-${data.model.replace(/\s+/g, '-').toLowerCase()}`);
-            if (thinkingDiv) {
-                thinkingDiv.remove();
+            try {
+                console.log('Sending start_conversation request');
+                const response = await fetch('/start-conversation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ topic, rounds })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('Conversation started:', result);
+            } catch (error) {
+                console.error('Error starting conversation:', error);
+                alert('Error starting conversation: ' + error.message);
+                
+                // Re-enable button on error
+                isConversationActive = false;
+                document.querySelector('.start-btn').disabled = false;
+                document.querySelector('.start-btn').textContent = 'Start Conversation';
             }
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${data.model.toLowerCase().includes('openai') ? 'openai' : 'anthropic'}`;
-            messageDiv.innerHTML = `
-                <div class="message-header">
-                    <span class="avatar">${data.avatar}</span>
-                    <span>${data.model}</span>
-                    <span class="round-badge">Round ${data.round}</span>
-                </div>
-                <div class="message-content">${data.response}</div>
-            `;
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        });
-
-
-        socket.on('weave_tracking', (data) => {
-            const weaveDiv = document.createElement('div');
-            weaveDiv.className = 'weave-tracking';
-            weaveDiv.innerHTML = `
-                📊 <strong>Conversation tracked with Weave!</strong><br>
-                <small>ID: ${data.conversationId}</small><br>
-                <a href="${data.dashboardUrl}" target="_blank">View Analytics Dashboard →</a>
-            `;
-            chatContainer.appendChild(weaveDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        });
-
-        socket.on('conversation_end', () => {
-            const completionDiv = document.createElement('div');
-            completionDiv.className = 'completion';
-            completionDiv.innerHTML = '🎉 Conversation completed! Start a new one above.';
-            chatContainer.appendChild(completionDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            // Re-enable button
-            isConversationActive = false;
-            document.querySelector('.start-btn').disabled = false;
-            document.querySelector('.start-btn').textContent = 'Start Conversation';
-        });
-
-        socket.on('error', (data) => {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'error';
-            errorDiv.innerHTML = `❌ ${data.message}`;
-            chatContainer.appendChild(errorDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            // Re-enable button on error too
-            isConversationActive = false;
-            document.querySelector('.start-btn').disabled = false;
-            document.querySelector('.start-btn').textContent = 'Start Conversation';
-        });
+        }
 
         // Allow Enter key to start conversation
         document.getElementById('topic').addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && !isConversationActive) {
                 startConversation();
+            }
+        });
+
+        // Clean up SSE connection when page unloads
+        window.addEventListener('beforeunload', () => {
+            if (eventSource) {
+                eventSource.close();
             }
         });
     </script>

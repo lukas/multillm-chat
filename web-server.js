@@ -1,51 +1,105 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  },
-  allowEIO3: true
-});
 
 const PORT = 3007;
 const HOST = '0.0.0.0';
 
-// Serve static files
+// Store active SSE connections
+const sseClients = new Set();
+
+// Middleware
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// SSE endpoint
+app.get('/events', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+
+  // Send keep-alive comment every 30 seconds
+  const keepAlive = setInterval(() => {
+    res.write(': keep-alive\n\n');
+  }, 30000);
+
+  // Add client to set
+  sseClients.add(res);
+
+  // Handle client disconnect
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    sseClients.delete(res);
+  });
+});
+
+// Helper function to broadcast to all SSE clients
+function broadcast(event, data) {
+  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  sseClients.forEach(client => {
+    try {
+      client.write(message);
+    } catch (error) {
+      console.error('Error writing to SSE client:', error);
+      sseClients.delete(client);
+    }
+  });
+}
+
+// Start conversation endpoint
+app.post('/start-conversation', (req, res) => {
+  const { topic, rounds } = req.body;
+  
+  if (!topic || !rounds) {
+    return res.status(400).json({ error: 'Topic and rounds are required' });
+  }
+
+  console.log(`🚀 Received start_conversation: "${topic}" with ${rounds} rounds`);
+  
+  // Start conversation asynchronously
+  const chatHandler = new MockChatHandler();
+  chatHandler.startConversation(topic, parseInt(rounds)).catch(error => {
+    console.error('❌ Error in start_conversation:', error);
+    broadcast('error', { message: error.message });
+  });
+
+  res.json({ status: 'started' });
+});
+
 // Mock chat handler that responds instantly
 class MockChatHandler {
-  constructor(io) {
-    this.io = io;
+  constructor() {
+    // No longer needs io parameter since we use broadcast function
   }
 
   async startConversation(topic, rounds = 3) {
     console.log(`🚀 Mock conversation: "${topic}" with ${rounds} rounds`);
     
-    this.io.emit('conversation_start', { topic, rounds });
+    broadcast('conversation_start', { topic, rounds });
     
     const conversationId = `conv_${Date.now()}`;
     
     for (let round = 1; round <= rounds; round++) {
       console.log(`--- Mock Round ${round} ---`);
-      this.io.emit('round_start', { round, totalRounds: rounds });
+      broadcast('round_start', { round, totalRounds: rounds });
       
       // Mock OpenAI response
-      this.io.emit('model_thinking', { model: 'OpenAI GPT-4', round });
+      broadcast('model_thinking', { model: 'OpenAI GPT-4', round });
       await new Promise(resolve => setTimeout(resolve, 500)); // Short delay
       
-      this.io.emit('model_response', { 
+      broadcast('model_response', { 
         model: 'OpenAI GPT-4', 
         response: `This is a mock OpenAI response for round ${round} about: ${topic}`, 
         round,
@@ -55,10 +109,10 @@ class MockChatHandler {
       await new Promise(resolve => setTimeout(resolve, 300));
       
       // Mock Anthropic response
-      this.io.emit('model_thinking', { model: 'Anthropic Claude', round });
+      broadcast('model_thinking', { model: 'Anthropic Claude', round });
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      this.io.emit('model_response', { 
+      broadcast('model_response', { 
         model: 'Anthropic Claude', 
         response: `This is a mock Anthropic response for round ${round}. The topic "${topic}" is interesting to discuss.`, 
         round,
@@ -68,44 +122,21 @@ class MockChatHandler {
       await new Promise(resolve => setTimeout(resolve, 300));
     }
     
-    this.io.emit('weave_tracking', {
+    broadcast('weave_tracking', {
       conversationId: conversationId,
       dashboardUrl: '/weave'
     });
     
-    this.io.emit('conversation_end');
+    broadcast('conversation_end');
     
     console.log('✅ Mock conversation completed');
     return { conversationId, topic, rounds };
   }
 }
 
-// Socket.io connection handling
-io.on('connection', (socket) => {
-  console.log('👤 User connected');
-
-  socket.on('start_conversation', async (data) => {
-    try {
-      const { topic, rounds } = data;
-      console.log(`🚀 Received start_conversation: "${topic}" with ${rounds} rounds`);
-      
-      const chatHandler = new MockChatHandler(io);
-      await chatHandler.startConversation(topic, parseInt(rounds));
-      
-    } catch (error) {
-      console.error('❌ Error in start_conversation:', error);
-      socket.emit('error', { message: error.message });
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('👤 User disconnected');
-  });
-});
-
 server.listen(PORT, HOST, () => {
   console.log(`🌐 Mock web interface running at http://${HOST}:${PORT}`);
-  console.log(`🔌 Socket.IO server ready for real-time updates`);
+  console.log(`📡 SSE server ready for real-time updates`);
 });
 
 process.on('SIGINT', () => {
