@@ -48,8 +48,8 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌐 Minimal test server running at http://0.0.0.0:${PORT}`);
+server.listen(PORT, 'localhost', () => {
+  console.log(`🌐 Minimal test server running at http://localhost:${PORT}`);
 });
 
 // Graceful shutdown
