@@ -48,8 +48,10 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, 'localhost', () => {
-  console.log(`🌐 Minimal test server running at http://localhost:${PORT}`);
+const HOST = process.env.HOST || 'localhost';
+
+server.listen(PORT, HOST, () => {
+  console.log(`🌐 Minimal test server running at http://${HOST}:${PORT}`);
 });
 
 // Graceful shutdown

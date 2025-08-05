@@ -9,7 +9,7 @@ const server = http.createServer(app);
 const io = socketIo(server);
 
 const PORT = 3009;
-const HOST = 'localhost';
+const HOST = process.env.HOST || 'localhost';
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
