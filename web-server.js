@@ -100,19 +100,19 @@ class MockChatHandler {
   async startConversation(topic, rounds = 3) {
     console.log(`🚀 Mock conversation: "${topic}" with ${rounds} rounds`);
     
-    this.io.emit('conversation_start', { topic, rounds });
+    sendSSE(this.clients, 'conversation_start', { topic, rounds });
     
     const conversationId = `conv_${Date.now()}`;
     
     for (let round = 1; round <= rounds; round++) {
       console.log(`--- Mock Round ${round} ---`);
-      this.io.emit('round_start', { round, totalRounds: rounds });
+      sendSSE(this.clients, 'round_start', { round, totalRounds: rounds });
       
       // Mock OpenAI response
-      this.io.emit('model_thinking', { model: 'OpenAI GPT-4', round });
+      sendSSE(this.clients, 'model_thinking', { model: 'OpenAI GPT-4', round });
       await new Promise(resolve => setTimeout(resolve, 500)); // Short delay
       
-      this.io.emit('model_response', { 
+      sendSSE(this.clients, 'model_response', { 
         model: 'OpenAI GPT-4', 
         response: `This is a mock OpenAI response for round ${round} about: ${topic}`, 
         round,
@@ -122,10 +122,10 @@ class MockChatHandler {
       await new Promise(resolve => setTimeout(resolve, 300));
       
       // Mock Anthropic response
-      this.io.emit('model_thinking', { model: 'Anthropic Claude', round });
+      sendSSE(this.clients, 'model_thinking', { model: 'Anthropic Claude', round });
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      this.io.emit('model_response', { 
+      sendSSE(this.clients, 'model_response', { 
         model: 'Anthropic Claude', 
         response: `This is a mock Anthropic response for round ${round}. The topic "${topic}" is interesting to discuss.`, 
         round,
@@ -135,44 +135,26 @@ class MockChatHandler {
       await new Promise(resolve => setTimeout(resolve, 300));
     }
     
-    this.io.emit('weave_tracking', {
+    sendSSE(this.clients, 'weave_tracking', {
       conversationId: conversationId,
       dashboardUrl: '/weave'
     });
     
-    this.io.emit('conversation_end');
+    sendSSE(this.clients, 'conversation_end', {});
     
     console.log('✅ Mock conversation completed');
     return { conversationId, topic, rounds };
   }
 }
 
-// Socket.io connection handling
-io.on('connection', (socket) => {
-  console.log('👤 User connected');
-
-  socket.on('start_conversation', async (data) => {
-    try {
-      const { topic, rounds } = data;
-      console.log(`🚀 Received start_conversation: "${topic}" with ${rounds} rounds`);
-      
-      const chatHandler = new MockChatHandler(io);
-      await chatHandler.startConversation(topic, parseInt(rounds));
-      
-    } catch (error) {
-      console.error('❌ Error in start_conversation:', error);
-      socket.emit('error', { message: error.message });
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('👤 User disconnected');
-  });
-});
+// Clean up dead clients periodically
+setInterval(() => {
+  removeDeadClients(sseClients);
+}, 60000);
 
 server.listen(PORT, HOST, () => {
   console.log(`🌐 Mock web interface running at http://${HOST}:${PORT}`);
-  console.log(`🔌 Socket.IO server ready for real-time updates`);
+  console.log(`📡 SSE endpoint available at /events`);
 });
 
 process.on('SIGINT', () => {
